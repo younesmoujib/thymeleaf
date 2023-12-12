@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8">
+  <link rel="stylesheet" href="/webjars/bootstrap/5.3.2/css/bootstrap.min.css" >
+
+  <title>Title</title>
+</head>
+<body>
+<div class="container mt-5">
+  <form th:action="@{/update/{id}(id=${user.id})}"th:object="${user}"method="post" >
+    <div class="mb-3">
+      <label class="form-label" fpr="nom">Nom :</label>
+      <input type="text" id="nom" class="form-control" th:field="*{nom}" >
+      <span  th:errors="${user.nom}"></span>
+    </div>
+
+    <div class="mb-3">
+      <label  class="form-label">Email address</label>
+      <input type="email" class="form-control" th:field="*{email}" aria-describedby="emailHelp">
+      <span  th:errors="${user.email}"></span>
+    </div>
+
+
+    <button type="submit" class="btn btn-primary">Envoyer </button>
+  </form>
+</body>
+</html>

@@ -1,0 +1,289 @@
+/*
+ * To change this license header, choose License Headers in Project Properties.
+ * To change this template file, choose Tools | Templates
+ * and open the template in the editor.
+ */
+package serives;
+
+import entities.Admin;
+import javax.ejb.Stateless;
+import javax.persistence.EntityManager;
+import javax.persistence.PersistenceContext;
+import javax.persistence.TypedQuery;
+
+/**
+ *
+ * @author pc
+ */
+@Stateless
+public class AdminFacade extends AbstractFacade<Admin> {
+    @PersistenceContext(unitName = "cltrEjbPU")
+    private EntityManager em;
+
+    @Override
+    protected EntityManager getEntityManager() {
+        return em;
+    }
+
+    public AdminFacade() {
+        super(Admin.class);
+    }
+    
+    public Admin findByUsername(String username) {
+        TypedQuery<Admin> query = em.createNamedQuery("Admin.findByUsername", Admin.class);
+        query.setParameter("username", username);
+
+        try {
+            return query.getSingleResult();
+        } catch (Exception e) {
+            return null; // Username not found
+        }
+    }
+}
+/*
+ * To change this license header, choose License Headers in Project Properties.
+ * To change this template file, choose Tools | Templates
+ * and open the template in the editor.
+ */
+package controllers;
+
+import entities.Admin;
+import controllers.util.JsfUtil;
+import controllers.util.JsfUtil.PersistAction;
+import serives.AdminFacade;
+
+import java.io.Serializable;
+import java.util.List;
+import java.util.ResourceBundle;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import javax.ejb.EJB;
+import javax.ejb.EJBException;
+import javax.faces.bean.ManagedBean;
+import javax.faces.bean.SessionScoped;
+import javax.faces.component.UIComponent;
+import javax.faces.context.FacesContext;
+import javax.faces.convert.Converter;
+import javax.faces.convert.FacesConverter;
+
+@ManagedBean(name = "adminController")
+@SessionScoped
+public class AdminController implements Serializable {
+
+    @EJB
+    private serives.AdminFacade ejbFacade;
+    private List<Admin> items = null;
+    private Admin selected;
+
+    public AdminController() {
+    }
+
+    public Admin getSelected() {
+        return selected;
+    }
+
+    public void setSelected(Admin selected) {
+        this.selected = selected;
+    }
+
+    protected void setEmbeddableKeys() {
+    }
+
+    protected void initializeEmbeddableKey() {
+    }
+
+    private AdminFacade getFacade() {
+        return ejbFacade;
+    }
+
+    public Admin prepareCreate() {
+        selected = new Admin();
+        initializeEmbeddableKey();
+        return selected;
+    }
+
+    public void create() {
+        persist(PersistAction.CREATE, ResourceBundle.getBundle("/Bundle").getString("AdminCreated"));
+        if (!JsfUtil.isValidationFailed()) {
+            items = null;    // Invalidate list of items to trigger re-query.
+        }
+    }
+
+    public void update() {
+        persist(PersistAction.UPDATE, ResourceBundle.getBundle("/Bundle").getString("AdminUpdated"));
+    }
+
+    public void destroy() {
+        persist(PersistAction.DELETE, ResourceBundle.getBundle("/Bundle").getString("AdminDeleted"));
+        if (!JsfUtil.isValidationFailed()) {
+            selected = null; // Remove selection
+            items = null;    // Invalidate list of items to trigger re-query.
+        }
+    }
+
+    public List<Admin> getItems() {
+        if (items == null) {
+            items = getFacade().findAll();
+        }
+        return items;
+    }
+
+    private void persist(PersistAction persistAction, String successMessage) {
+        if (selected != null) {
+            setEmbeddableKeys();
+            try {
+                if (persistAction != PersistAction.DELETE) {
+                    getFacade().edit(selected);
+                } else {
+                    getFacade().remove(selected);
+                }
+                JsfUtil.addSuccessMessage(successMessage);
+            } catch (EJBException ex) {
+                String msg = "";
+                Throwable cause = ex.getCause();
+                if (cause != null) {
+                    msg = cause.getLocalizedMessage();
+                }
+                if (msg.length() > 0) {
+                    JsfUtil.addErrorMessage(msg);
+                } else {
+                    JsfUtil.addErrorMessage(ex, ResourceBundle.getBundle("/Bundle").getString("PersistenceErrorOccured"));
+                }
+            } catch (Exception ex) {
+                Logger.getLogger(this.getClass().getName()).log(Level.SEVERE, null, ex);
+                JsfUtil.addErrorMessage(ex, ResourceBundle.getBundle("/Bundle").getString("PersistenceErrorOccured"));
+            }
+        }
+    }
+
+    public List<Admin> getItemsAvailableSelectMany() {
+        return getFacade().findAll();
+    }
+
+    public List<Admin> getItemsAvailableSelectOne() {
+        return getFacade().findAll();
+    }
+
+    @FacesConverter(forClass = Admin.class)
+    public static class AdminControllerConverter implements Converter {
+
+        @Override
+        public Object getAsObject(FacesContext facesContext, UIComponent component, String value) {
+            if (value == null || value.length() == 0) {
+                return null;
+            }
+            AdminController controller = (AdminController) facesContext.getApplication().getELResolver().
+                    getValue(facesContext.getELContext(), null, "adminController");
+            return controller.getFacade().find(getKey(value));
+        }
+
+        java.lang.Integer getKey(String value) {
+            java.lang.Integer key;
+            key = Integer.valueOf(value);
+            return key;
+        }
+
+        String getStringKey(java.lang.Integer value) {
+            StringBuilder sb = new StringBuilder();
+            sb.append(value);
+            return sb.toString();
+        }
+
+        @Override
+        public String getAsString(FacesContext facesContext, UIComponent component, Object object) {
+            if (object == null) {
+                return null;
+            }
+            if (object instanceof Admin) {
+                Admin o = (Admin) object;
+                return getStringKey(o.getId());
+            } else {
+                Logger.getLogger(this.getClass().getName()).log(Level.SEVERE, "object {0} is of type {1}; expected type: {2}", new Object[]{object, object.getClass().getName(), Admin.class.getName()});
+                return null;
+            }
+        }
+
+    }
+    
+    public boolean authenticate(String username, String password) {
+        Admin admin = ejbFacade.findByUsername(username);
+        return (admin != null && admin.getPassword().equals(password));
+    }
+
+}
+/*
+ * To change this license header, choose License Headers in Project Properties.
+ * To change this template file, choose Tools | Templates
+ * and open the template in the editor.
+ */
+package controllers;
+
+import javax.faces.application.FacesMessage;
+import javax.faces.bean.ManagedBean;
+import javax.faces.bean.ManagedProperty;
+import javax.faces.bean.SessionScoped;
+import javax.faces.context.ExternalContext;
+import javax.faces.context.FacesContext;
+import java.io.IOException;
+
+@ManagedBean(name = "loginController")
+@SessionScoped
+public class LoginController {
+
+    @ManagedProperty(value = "#{adminController}")
+    private AdminController adminController;
+
+    private String username;
+    private String password;
+
+    public String login() {
+        // Check username and password against the database
+        if (adminController.authenticate(username, password)) {
+            // Redirect to the desired page upon successful login
+            redirectTo("/faces/employe/List.xhtml");
+            return null; // Navigation will be handled by redirectTo method
+        } else {
+            // Authentication failed, show error message
+            FacesContext.getCurrentInstance().addMessage(null, new FacesMessage(FacesMessage.SEVERITY_ERROR, "Échec de la connexion", "Vérifiez vos identifiants"));
+            return null;
+        }
+    }
+
+    public void logout() {
+        // Implement your logout logic here
+        // This method might be useful for clearing session data or performing other logout actions
+    }
+
+    private void redirectTo(String path) {
+        ExternalContext externalContext = FacesContext.getCurrentInstance().getExternalContext();
+        try {
+            externalContext.redirect(externalContext.getRequestContextPath() + path);
+        } catch (IOException e) {
+            // Handle the exception (e.g., log it)
+        }
+    }
+
+    public String getUsername() {
+        return username;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
+    }
+
+    public AdminController getAdminController() {
+        return adminController;
+    }
+
+    public void setAdminController(AdminController adminController) {
+        this.adminController = adminController;
+    }
+}
